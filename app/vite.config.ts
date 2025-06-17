@@ -7,8 +7,8 @@ export default defineConfig({
   plugins: [react()],
   server: {
     https: {
-      key: fs.readFileSync(path.resolve(__dirname, 'cert/key.pem')),
-      cert: fs.readFileSync(path.resolve(__dirname, 'cert/cert.pem')),
+      key: fs.readFileSync(path.resolve(__dirname, 'cert/with-cross+3-key.pem')),
+      cert: fs.readFileSync(path.resolve(__dirname, 'cert/with-cross+3.pem')),
     },
     host: true, // これで LAN 内のスマホでもアクセス可能に
     port: 5173,

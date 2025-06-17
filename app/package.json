@@ -10,11 +10,18 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tensorflow/tfjs": "^3.20.0",
+    "@tensorflow/tfjs-backend-wasm": "^3.20.0",
+    "@tensorflow/tfjs-core": "^3.20.0",
+    "@tensorflow/tfjs-tflite": "^0.0.1-alpha.9",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "react-router-dom": "^7.6.2",
+    "ws": "^8.18.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",
+    "@types/node": "^24.0.0",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^4.4.1",
