@@ -25,7 +25,7 @@ export function useVibrationCommand(enabled: boolean) {
 
     ws.onopen = () => {
       console.log('🛰️ Connected to /ctrl');
-      ws.send('REACT');
+      ws.send('React');
     };
 
     ws.onclose = () => {

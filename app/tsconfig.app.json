@@ -23,5 +23,5 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src", "public/workers", "public/classifierWorker.js"]
+  "include": ["src", "src/workers", "public/classifierWorker.js"]
 }

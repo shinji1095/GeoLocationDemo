@@ -1,33 +1,38 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useEffect } from 'react';
 
-export const useClassifierWorker = () => {
-  const worker = useRef<Worker>();
-  const [ready, setReady] = useState(false);
-  const [result, setResult] = useState<{ output: number[]; elapsed: number } | null>(null);
+export function useWorkerClassifier() {
+  const workerRef = useRef<Worker | null>(null);
 
   useEffect(() => {
-    worker.current  = new Worker(
-        new URL('/classifierWorker.ts', import.meta.url),
-        { type: 'module' }
-        );
-    worker.current.onmessage = (e) => {
-        if (e.data.type === 'ready') setReady(true);
-        if (e.data.type === 'result') setResult(e.data);
+    workerRef.current = new Worker(new URL('../workers/classifierWorker.ts', import.meta.url));
+
+    return () => {
+      workerRef.current?.terminate();
+      workerRef.current = null;
     };
+  }, []);
 
-    (async () => {
-        const buf = await (await fetch('/model/WithCross_640x640.tflite')).arrayBuffer();
-        worker.current!.postMessage({ type: 'loadModel', buffer: buf }, [buf]);
-    })();
+  const classify = (blob: Blob): Promise<{ output: number[], elapsed: number }> => {
+    return new Promise((resolve, reject) => {
+      const worker = workerRef.current;
+      if (!worker) {
+        reject(new Error('Worker not initialized'));
+        return;
+      }
 
-    return () => worker.current?.terminate();
-    }, []);
-
-    const classify = (blob: Blob) => {
-        if (ready && workerRef.current) {
-        workerRef.current.postMessage({ type: 'classify', data: { blob } });
+      worker.onmessage = (event) => {
+        const { output, elapsed, error } = event.data;
+        if (error) {
+          reject(new Error(error));
+        } else {
+          resolve({ output, elapsed });
         }
+      };
+
+      worker.onerror = (e) => reject(new Error(e.message));
+      worker.postMessage(blob);
+    });
   };
 
-  return { classify, result, ready };
-};
+  return { classify };
+}

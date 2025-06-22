@@ -1,69 +1,61 @@
-import { RefObject, useCallback } from 'react';
-import { useSpeak } from './useSpeak';
+import { useRef, useCallback } from 'react';
 import { useClassifier } from './useClassifier';
-import { useImageStream } from './useImageStream';
-import { useDataLogger } from './useDataLogger';
+import { useSpeak } from './useSpeak';
 import { useVibrationCommand } from './useVibrationCommand';
-import { SIGNAL_LABEL, CROSSWALK_LABEL } from '../config/config';
 
-type Props = {
+type LogicProps = {
   enabled: boolean;
-  canvasRef: RefObject<HTMLCanvasElement>;
-  setLogs: React.Dispatch<React.SetStateAction<string[]>>;
+  onLog: (msg: string) => void;
 };
 
-export function useCrosswalkLogic({ enabled, canvasRef, setLogs }: Props) {
-  const { speak } = useSpeak();
+export function useCrosswalkLogic({ enabled, onLog }: LogicProps) {
   const { classify } = useClassifier();
-  const { evaluateAndSendVibration } = useVibrationCommand();
+  const { speak } = useSpeak();
+  const { evaluateAndSendVibration, resetState } = useVibrationCommand(enabled);
+  const isClassifying = useRef(false);
 
-  const addLog = useCallback(
-    (msg: string) =>
-      setLogs((prev) => [new Date().toLocaleTimeString() + ' ' + msg, ...prev].slice(0, 100)),
-    [setLogs]
+  const handleToggle = useCallback(() => {
+    if (enabled) resetState();
+  }, [enabled, resetState]);
+
+  const handleImage = useCallback(
+    (blob: Blob) => {
+      const imgUrl = URL.createObjectURL(blob);
+
+      if (!isClassifying.current) {
+        isClassifying.current = true;
+
+        setTimeout(async () => {
+          try {
+            const { output, elapsed } = await classify(blob);
+            const signalPart = output.slice(0, 3);
+            const crosswalkPart = output.slice(3, 6);
+            const inclinationRaw = output[6];
+
+            const signal_idx = signalPart.indexOf(Math.max(...signalPart));
+            const crosswalk_idx = crosswalkPart.indexOf(Math.max(...crosswalkPart));
+            const line_inclination = Math.tanh(inclinationRaw);
+
+            const resultLog = `🧠 推論: 信号=${signal_idx}, 横断歩道=${crosswalk_idx}, 傾き=${line_inclination.toFixed(2)} (処理: ${elapsed.toFixed(1)} ms)`;
+            onLog(resultLog);
+
+            speak(`信号${signal_idx}、横断歩道${crosswalk_idx}、傾き${line_inclination.toFixed(1)}`);
+            evaluateAndSendVibration({ signal_idx, crosswalk_idx, line_inclination });
+          } catch (e: any) {
+            onLog(`❌ 推論エラー: ${e.message}`);
+          } finally {
+            isClassifying.current = false;
+            URL.revokeObjectURL(imgUrl);
+          }
+        }, 0);
+      } else {
+        setTimeout(() => URL.revokeObjectURL(imgUrl), 500);
+      }
+
+      return imgUrl; // 画像URLを返して即時描画
+    },
+    [classify, speak, evaluateAndSendVibration, onLog]
   );
 
-  useImageStream({
-    enabled,
-    canvasRef,
-    onImage: async (blob) => {
-      try {
-        const bitmap = await createImageBitmap(blob);
-        const canvas = canvasRef.current;
-        if (canvas) {
-          canvas.width = bitmap.width;
-          canvas.height = bitmap.height;
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(bitmap, 0, 0);
-        }
-
-        addLog(`📸 Image received: ${(blob.size / 1024).toFixed(1)} KB`);
-        const { output, elapsed } = await classify(blob);
-
-        const partA = output.slice(0, 3);
-        const partB = output.slice(3, 6);
-        const partC = output[6];
-
-        const signal_idx = partA.indexOf(Math.max(...partA));
-        const crosswalk_idx = partB.indexOf(Math.max(...partB));
-        const line_inclination = Math.tanh(partC);
-
-        const resultLog = `🧠 推論結果: signal=${SIGNAL_LABEL[signal_idx]}, crosswalk=${CROSSWALK_LABEL[crosswalk_idx]}, inclination=${line_inclination.toFixed(3)} (処理時間: ${elapsed.toFixed(1)} ms)`;
-        addLog(resultLog);
-
-        speak(`信号，${SIGNAL_LABEL[signal_idx]}, 横断歩道，${CROSSWALK_LABEL[crosswalk_idx]}, 傾き，${line_inclination.toFixed(3)}`);
-
-        evaluateAndSendVibration({
-            signal_idx,
-            crosswalk_idx,
-            line_inclination,
-        });
-
-      } catch (err: any) {
-        addLog(`❌ Error: ${err.message}`);
-      }
-    },
-    onStatus: addLog,
-    wsUrl: 'wss://localhost:4443/stream',
-  });
+  return { handleImage, handleToggle };
 }
