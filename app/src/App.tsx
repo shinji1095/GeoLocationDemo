@@ -6,6 +6,7 @@ import NavigationPage from './pages/NavigationPage';
 import FetchPage from './pages/FetchPage';
 import ClassificationPage from './pages/ClassificationPage';
 import CrosswalkPage from './pages/CroswalkPage';
+import StreamingPage from './pages/StreamingPage';
 
 
 const App: React.FC = () => {
@@ -18,6 +19,7 @@ const App: React.FC = () => {
           <Route path="/fetch" element={<FetchPage />} />
           <Route path="/classification" element={<ClassificationPage />} />
           <Route path="/crosswalk" element={<CrosswalkPage />} />
+          <Route path="/stream" element={<StreamingPage />} />
         </Routes>
       </Layout>
     </Router>

@@ -12,3 +12,11 @@ export function calculateBearing(lat1: number, lon1: number, lat2: number, lon2:
   const bearing = (θ * 180) / Math.PI;
   return (bearing + 360) % 360;
 }
+
+export function makeWsUrl(path: string, httpsPort = 4443, httpPort = 4000) {
+  const { protocol, hostname } = window.location;
+  if (protocol === 'https:') {
+    return `wss://${hostname}:${httpsPort}${path}`;
+  }
+  return `ws://${hostname}:${httpPort}${path}`;
+}

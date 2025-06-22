@@ -31,9 +31,9 @@ export const useClassifier = () => {
 
     const bitmap = await createImageBitmap(blob);
     const ctx = canvas.current.getContext('2d')!;
-    canvas.current.width = 640;
-    canvas.current.height = 480;
-    ctx.drawImage(bitmap, 0, 0, 640, 480);
+    canvas.current.width = config.MODEL_WIDTH;
+    canvas.current.height = config.MODEL_HEIGHT;
+    ctx.drawImage(bitmap, 0, 0, config.MODEL_WIDTH, config.MODEL_HEIGHT);
 
     const inputTensor = preprocessImage(canvas.current);
     const start = performance.now();

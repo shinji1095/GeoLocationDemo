@@ -13,4 +13,9 @@ export default defineConfig({
     host: true, // これで LAN 内のスマホでもアクセス可能に
     port: 5173,
   },
+  assetsInclude: ['**/*.wasm'],
+  worker: {
+    format: 'es',
+    // plugins: [], 
+  },
 })

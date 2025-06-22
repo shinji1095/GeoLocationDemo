@@ -1,12 +1,16 @@
 import React, { useState, useRef } from 'react';
 import { useSSD } from '../hooks/useSSD';
+import { useSpeak } from '../hooks/useSpeak';
 import { useImageStream } from '../hooks/useImageStream';
+import { useDataLogger } from '../hooks/useDataLogger';
 import { COCO_LABELS } from '../config/coco_labels';
 
 const SCORE_TH = 0.6;
 
 const ClassificationPage: React.FC = () => {
   const { classify } = useSSD();
+  const { speak } = useSpeak();
+  const { saveBlob, saveText } = useDataLogger();
   const [logs, setLogs] = useState<string[]>([]);
   const [listening, setListening] = useState(false);
   const inputCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -33,7 +37,7 @@ const ClassificationPage: React.FC = () => {
         const rctx = resC.getContext('2d')!;
         ictx.drawImage(bmp, 0, 0);
         rctx.drawImage(bmp, 0, 0); // start with original for annotation
-
+        
         // --- inference ---
         const { boxes, classes, scores, elapsed } = await classify(blob);
         const h = bmp.height;
@@ -42,24 +46,34 @@ const ClassificationPage: React.FC = () => {
         rctx.lineWidth = 2;
         rctx.font = '16px sans-serif';
         rctx.fillStyle = 'lime';
-
+        
         let detectStr = '';
-        boxes.forEach((b, idx) => {
+        let spoken = false;
+        
+        boxes.forEach((box: number[], idx: number) => {
           const score = scores[idx];
           if (score < SCORE_TH) return;
           const cls = classes[idx];
-          const [ymin, xmin, ymax, xmax] = b;
+          const [ymin, xmin, ymax, xmax] = box;
           const x1 = xmin * w;
           const y1 = ymin * h;
           const x2 = xmax * w;
           const y2 = ymax * h;
-          rctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
-          const label = COCO_LABELS[cls] ?? `cls${cls}`;
-          rctx.fillText(`${label} ${(score * 100).toFixed(1)}%`, x1, y1 - 4);
-          detectStr += `  - ${label} ${(score * 100).toFixed(1)}%\n`;
-        });
+          rctx!.strokeRect(x1, y1, x2 - x1, y2 - y1);
+          const label = COCO_LABELS[cls] ?? `クラス ${cls}`;
+          const conf = (score * 100).toFixed(1);
+          rctx!.fillText(`${label} ${conf}%`, x1, y1 - 4);
+          detectStr += `  - ${label} ${conf}% box=(${x1.toFixed(0)},${y1.toFixed(0)})-(${x2.toFixed(0)},${y2.toFixed(0)})\n`;
 
+          if (!spoken) {
+            speak(`${label} の確率、${conf}パーセント`);
+            spoken = true;
+          }
+        });
+        
         addLog(`推論: ${elapsed.toFixed(1)} ms\n${detectStr || '  検出なし'}`);
+        await saveBlob(blob, 'img');
+        await saveText(`推論完了 (${elapsed.toFixed(1)} ms)\n${detectStr || '  検出なし'}`);
       } catch (e: any) {
         addLog('Error: ' + e.message);
       }
