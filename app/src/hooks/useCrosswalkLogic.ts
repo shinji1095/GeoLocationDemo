@@ -36,13 +36,13 @@ export function useCrosswalkLogic({ enabled, onLog }: LogicProps) {
             const crosswalk_idx = crosswalkPart.indexOf(Math.max(...crosswalkPart));
             const line_inclination = Math.tanh(inclinationRaw);
 
-            const resultLog = `🧠 推論: 信号=${signal_idx}, 横断歩道=${crosswalk_idx}, 傾き=${line_inclination.toFixed(2)} (処理: ${elapsed.toFixed(1)} ms)`;
+            const resultLog = `推論: 信号=${signal_idx}, 横断歩道=${crosswalk_idx}, 傾き=${line_inclination.toFixed(2)} (処理: ${elapsed.toFixed(1)} ms)`;
             onLog(resultLog);
 
             speak(`信号${signal_idx}、横断歩道${crosswalk_idx}、傾き${line_inclination.toFixed(1)}`);
             evaluateAndSendVibration({ signal_idx, crosswalk_idx, line_inclination });
           } catch (e: any) {
-            onLog(`❌ 推論エラー: ${e.message}`);
+            onLog(`推論エラー: ${e.message}`);
           } finally {
             isClassifying.current = false;
             URL.revokeObjectURL(imgUrl);

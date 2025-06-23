@@ -25,7 +25,7 @@ export function useStreaming(streamUrl: string) {
     };
 
     ws.onerror = (e) => {
-      console.error('❌ WebSocket error', e);
+      console.error('WebSocket error', e);
     };
 
     ws.onclose = () => {

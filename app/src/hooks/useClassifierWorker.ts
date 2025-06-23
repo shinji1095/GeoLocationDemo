@@ -1,38 +1,82 @@
-import { useRef, useEffect } from 'react';
+console.log('classifierWorker.js loaded');
 
-export function useWorkerClassifier() {
+self.postMessage({ status: 'log', msg: 'worker started' });
+
+import { useEffect, useRef } from 'react';
+
+export const useWorkerClassifier = () => {
   const workerRef = useRef<Worker | null>(null);
+  const isModelReady = useRef(false);
+  const modelReadyCallbacks: (() => void)[] = [];
 
   useEffect(() => {
-    workerRef.current = new Worker(new URL('../workers/classifierWorker.ts', import.meta.url));
+    console.log('Worker initializing…');
+    workerRef.current = new Worker('/workers/classifierWorker.js');
+
+    console.log('Worker onmessage');
+    workerRef.current.onmessage = (event) => {
+        console.log('Worker message:', event.data);
+        const { status, msg, error } = event.data;
+
+        if (status === 'model-loaded') {
+        isModelReady.current = true;
+        modelReadyCallbacks.forEach(cb => cb());
+        modelReadyCallbacks.length = 0;
+        console.log('model-ready');
+        return;
+        }
+        if (status === 'log') {
+        console.log('[Worker]', msg);
+        return;
+        }
+        if (status === 'load-error') {
+        console.error('model load failed:', error);
+        return;
+        }
+    };
 
     return () => {
-      workerRef.current?.terminate();
-      workerRef.current = null;
+        workerRef.current?.terminate();
+        workerRef.current = null;
     };
-  }, []);
+    }, []);
 
-  const classify = (blob: Blob): Promise<{ output: number[], elapsed: number }> => {
+
+  const waitUntilReady = (): Promise<void> => {
+    if (isModelReady.current) return Promise.resolve();
+    return new Promise((resolve) => {
+      modelReadyCallbacks.push(resolve);
+    });
+  };
+
+  const classify = async (blob: Blob): Promise<{ output: number[]; elapsed: number }> => {
+    await waitUntilReady(); // モデル準備完了まで待機
+
+    const worker = workerRef.current;
+    if (!worker) throw new Error('Worker not initialized');
+
     return new Promise((resolve, reject) => {
-      const worker = workerRef.current;
-      if (!worker) {
-        reject(new Error('Worker not initialized'));
-        return;
-      }
-
-      worker.onmessage = (event) => {
+      const handleMessage = (event: MessageEvent) => {
         const { output, elapsed, error } = event.data;
         if (error) {
           reject(new Error(error));
         } else {
           resolve({ output, elapsed });
         }
+        worker.removeEventListener('message', handleMessage);
       };
 
-      worker.onerror = (e) => reject(new Error(e.message));
+      const handleError = (e: ErrorEvent) => {
+        reject(new Error(e.message));
+        worker.removeEventListener('error', handleError);
+      };
+
+      worker.addEventListener('message', handleMessage);
+      worker.addEventListener('error', handleError);
+
       worker.postMessage(blob);
     });
   };
 
   return { classify };
-}
+};

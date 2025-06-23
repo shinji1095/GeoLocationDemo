@@ -27,7 +27,7 @@ export function useImageStream({ enabled, wsUrl, onImage, onStatus }: ImageStrea
     };
 
     ws.onclose = () => onStatus?.('🔌 WebSocket closed');
-    ws.onerror = () => onStatus?.('❌ WebSocket error');
+    ws.onerror = () => onStatus?.('WebSocket error');
 
     return () => {
       ws.close();

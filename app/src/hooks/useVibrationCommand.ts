@@ -33,7 +33,7 @@ export function useVibrationCommand(enabled: boolean) {
     };
 
     ws.onerror = (e) => {
-      console.error('❌ /ctrl error:', e);
+      console.error('/ctrl error:', e);
     };
 
     return () => {

@@ -14,8 +14,8 @@ const wsCtrl = new WebSocket.Server({  noServer: true  });
 
 // HTTPS server for React
 const httpsServer = https.createServer({
-  key: fs.readFileSync('./cert/key.pem'),
-  cert: fs.readFileSync('./cert/cert.pem'),
+  key: fs.readFileSync('./cert/with-cross+3-key.pem'),
+  cert: fs.readFileSync('./cert/with-cross+3.pem'),
 });
 
 // WebSocket servers for React (stream + control), using manual upgrade
@@ -74,7 +74,7 @@ function setupWebSocket(wss, label) {
     });
 
     ws.on('error', (err) => {
-      console.error('❌ Xiao WebSocket error:', err);
+      console.error('Xiao WebSocket error:', err);
     });
 
     ws.on('close', () => {
@@ -114,7 +114,7 @@ wssCtrl.on('connection', (ws, req) => {
   });
 
   ws.on('close', () => {
-    console.log(`❌ CTRL disconnected: ${ip}`);
+    console.log(`CTRL disconnected: ${ip}`);
     if (ws === ctrlXiao) ctrlXiao = null;
     if (ws === ctrlReact) ctrlReact = null;
   });
