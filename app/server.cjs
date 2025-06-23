@@ -14,8 +14,8 @@ const wsCtrl = new WebSocket.Server({  noServer: true  });
 
 // HTTPS server for React
 const httpsServer = https.createServer({
-  key: fs.readFileSync('./cert/with-cross+3-key.pem'),
-  cert: fs.readFileSync('./cert/with-cross+3.pem'),
+  key: fs.readFileSync('./cert/localhost+1-key.pem'),
+  cert: fs.readFileSync('./cert/localhost+1.pem'),
 });
 
 // WebSocket servers for React (stream + control), using manual upgrade
