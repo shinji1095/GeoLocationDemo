@@ -14,6 +14,7 @@ const Sidebar: React.FC<Props> = ({ collapsed }) => (
       <li><Link to="/classification">分類デモ(MobilenetV2)</Link></li>
       <li><Link to="/crosswalk">横断歩道支援</Link></li>
       <li><Link to="/stream">ストリーミング</Link></li>
+      <li><Link to="/delay">音声遅延</Link></li>
     </ul>
   </nav>
 );

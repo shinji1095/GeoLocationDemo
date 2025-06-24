@@ -23,6 +23,9 @@ const char* CTRL_PATH     = "/ctrl";
 #define FRAME_SIZE   FRAMESIZE_VGA
 #define JPEG_QUALITY 12
 #define SEND_INTERVAL_MS 100
+
+#define BUTTON_PIN 1
+bool lastButtonState = LOW;
 /****************************************/
 
 WebSocketsClient wsStream;
@@ -126,6 +129,9 @@ void setup() {
   pinMode(VIBRATION_PIN, OUTPUT);
   digitalWrite(VIBRATION_PIN, LOW);
 
+  pinMode(BUTTON_PIN, INPUT);
+  lastButtonState = digitalRead(BUTTON_PIN);
+
   if (!initCamera()) {
     Serial.println("Camera init failed. Halting.");
     while (true) delay(1000);
@@ -155,6 +161,15 @@ void loop() {
   if (!ok) {
     Serial.println("WebSocket send failed");
   }
+
+  bool currentButtonState = digitalRead(BUTTON_PIN);
+  if (lastButtonState == LOW && currentButtonState == HIGH) {
+    Serial.println("Button pressed!");
+    if (wsCtrl.isConnected()) {
+      wsCtrl.sendTXT("pressed"); 
+    }
+  }
+  lastButtonState = currentButtonState;
 
   esp_camera_fb_return(fb);
 }

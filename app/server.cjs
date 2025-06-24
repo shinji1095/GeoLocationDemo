@@ -3,29 +3,26 @@ const http = require('http');
 const https = require('https');
 const WebSocket = require('ws');
 
-// Control state
+// --- Control state
 let ctrlXiao = null;
 let ctrlReact = null;
 
-// HTTP server for Xiao
+// --- HTTP (ws://) server for Xiao
 const httpServer = http.createServer();
-const wsXiao = new WebSocket.Server({  noServer: true  });
-const wsCtrl = new WebSocket.Server({  noServer: true  });
+const wsXiao = new WebSocket.Server({ noServer: true });
+const wsCtrl = new WebSocket.Server({ noServer: true });
 
-// HTTPS server for React
+// --- HTTPS (wss://) server for React
 const httpsServer = https.createServer({
   key: fs.readFileSync('./cert/localhost+1-key.pem'),
   cert: fs.readFileSync('./cert/localhost+1.pem'),
 });
-
-// WebSocket servers for React (stream + control), using manual upgrade
 const wssReact = new WebSocket.Server({ noServer: true });
 const wssCtrl = new WebSocket.Server({ noServer: true });
 
-// --- Manual routing for wss:// requests ---
+// --- Manual routing for upgrade requests
 httpServer.on('upgrade', (req, socket, head) => {
   const { url } = req;
-
   if (url === '/stream') {
     wsXiao.handleUpgrade(req, socket, head, (ws) => {
       wsXiao.emit('connection', ws, req);
@@ -35,13 +32,12 @@ httpServer.on('upgrade', (req, socket, head) => {
       wsCtrl.emit('connection', ws, req);
     });
   } else {
-    socket.destroy(); // Reject unknown paths
+    socket.destroy();
   }
 });
 
 httpsServer.on('upgrade', (req, socket, head) => {
   const { url } = req;
-
   if (url === '/stream') {
     wssReact.handleUpgrade(req, socket, head, (ws) => {
       wssReact.emit('connection', ws, req);
@@ -51,20 +47,17 @@ httpsServer.on('upgrade', (req, socket, head) => {
       wssCtrl.emit('connection', ws, req);
     });
   } else {
-    socket.destroy(); // Reject unknown paths
+    socket.destroy();
   }
 });
 
-// --- Streaming relay setup (Xiao <-> React) ---
+// --- Streaming relay (Xiao <-> React)
 function setupWebSocket(wss, label) {
   wss.on('connection', (ws, req) => {
     const ip = req.socket.remoteAddress;
     console.log(`📡 ${label} client connected: ${ip}`);
 
     ws.on('message', (data, isBinary) => {
-      console.log(`🖼️ ${label} sent ${(data.length / 1024).toFixed(1)} KB`);
-
-      // Relay to all clients
       wsXiao.clients.forEach(c =>
         c !== ws && c.readyState === WebSocket.OPEN && c.send(data, { binary: isBinary })
       );
@@ -74,7 +67,7 @@ function setupWebSocket(wss, label) {
     });
 
     ws.on('error', (err) => {
-      console.error('Xiao WebSocket error:', err);
+      console.error(`${label} WebSocket error:`, err);
     });
 
     ws.on('close', () => {
@@ -83,14 +76,13 @@ function setupWebSocket(wss, label) {
   });
 }
 
-// Setup streaming servers
 setupWebSocket(wsXiao, 'Xiao');
 setupWebSocket(wssReact, 'React');
 
-// --- Control channel (React <-> Xiao) ---
-wssCtrl.on('connection', (ws, req) => {
+// --- Xiao (ws://ctrl)
+wsCtrl.on('connection', (ws, req) => {
   const ip = req.socket.remoteAddress;
-  console.log(`🎮 CTRL connected: ${ip}`);
+  console.log(`🎮 CTRL (XIAO) connected on HTTP: ${ip}`);
 
   ws.once('message', (data, isBinary) => {
     const message = !isBinary ? data.toString() : '[binary]';
@@ -99,15 +91,50 @@ wssCtrl.on('connection', (ws, req) => {
     if (!isBinary && message === 'XIAO') {
       ctrlXiao = ws;
       console.log('✅ Xiao registered on /ctrl');
+
+      // --- 🔄 Send server time for sync
+      const now = Date.now();
+      ws.send(JSON.stringify({ type: 'server_time', ts: now }));
+      console.log(`⏱️ Sent server time: ${now}`);
+
+      ctrlXiao.on('message', (data, isBinary) => {
+        if (ctrlReact && ctrlReact.readyState === WebSocket.OPEN) {
+          ctrlReact.send(data, { binary: isBinary });
+          console.log(`🔁 Xiao → React: ${data.toString()}`);
+        }
+      });
+    }
+  });
+});
+
+// --- React (wss://ctrl)
+wssCtrl.on('connection', (ws, req) => {
+  const ip = req.socket.remoteAddress;
+  console.log(`CTRL connected: ${ip}`);
+
+  ws.once('message', (data, isBinary) => {
+    const message = !isBinary ? data.toString() : '[binary]';
+    console.log(`[CTRL] first message: ${message}`);
+
+    if (!isBinary && message === 'XIAO') {
+      ctrlXiao = ws;
+      console.log('Xiao registered on /ctrl');
+
+      ctrlXiao.on('message', (data, isBinary) => {
+        if (ctrlReact && ctrlReact.readyState === WebSocket.OPEN) {
+          ctrlReact.send(data, { binary: isBinary });
+          console.log(`🔁 Forwarded to React: ${data.toString()}`);
+        }
+      });
+
     } else {
       ctrlReact = ws;
-      console.log('✅ React registered on /ctrl');
+      console.log('React registered on /ctrl');
 
-      // React → Xiao control message forwarding
-      ws.on('message', (data2, isBinary2) => {
+      ctrlReact.on('message', (data, isBinary) => {
         if (ctrlXiao && ctrlXiao.readyState === WebSocket.OPEN) {
-          ctrlXiao.send(data2, { binary: isBinary2 });
-          console.log(`🔁 sent control to Xiao: 0x${Buffer.from(data2)[0].toString(16)}`);
+          ctrlXiao.send(data, { binary: isBinary });
+          console.log(`sent control to Xiao: ${data.toString('hex')}`);
         }
       });
     }
@@ -120,11 +147,10 @@ wssCtrl.on('connection', (ws, req) => {
   });
 });
 
-
-// --- Start servers ---
+// --- Start servers
 httpServer.listen(4000, () => {
-  console.log('🚀 ws:// listening on port 4000 (Xiao)');
+  console.log('ws:// listening on port 4000 (Xiao)');
 });
 httpsServer.listen(4443, () => {
-  console.log('🔐 wss:// listening on port 4443 (React)');
+  console.log('wss:// listening on port 4443 (React)');
 });
