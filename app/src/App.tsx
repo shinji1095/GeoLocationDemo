@@ -8,6 +8,7 @@ import ClassificationPage from './pages/ClassificationPage';
 import CrosswalkPage from './pages/CroswalkPage';
 import StreamingPage from './pages/StreamingPage';
 import AudioDelayPage from './pages/AudioDelayPage';
+import SufficientAccuracyEvaluationPage from './pages/SufficientAccracyEvaluationPage';
 
 
 const App: React.FC = () => {
@@ -22,6 +23,7 @@ const App: React.FC = () => {
           <Route path="/crosswalk" element={<CrosswalkPage />} />
           <Route path="/stream" element={<StreamingPage />} />
           <Route path='/delay' element={<AudioDelayPage />}/>
+          <Route path='/accuracy' element={<SufficientAccuracyEvaluationPage />}/>
         </Routes>
       </Layout>
     </Router>

@@ -11,10 +11,10 @@
 #include "camera_pins.h"   // Board-specific pin map
 
 /**************  USER CONFIG  *************************/
-const char* WIFI_SSID     = "aterm-cd7784-a";//"moto g(50) 5G_2485";//
-const char* WIFI_PASS     = "9d1d50c097fc7";//"44bpwpzj6s8rkxc";//
+const char* WIFI_SSID     = "moto g(50) 5G_2485";//"aterm-cd7784-a";//
+const char* WIFI_PASS     = "44bpwpzj6s8rkxc";//"9d1d50c097fc7";//
 
-const char* WS_HOST       = "192.168.10.101"; 
+const char* WS_HOST       = "192.168.216.91"; 
 const uint16_t WS_PORT    = 4000;
 const char* WS_PATH       = "/stream";
 const char* CTRL_PATH     = "/ctrl";
