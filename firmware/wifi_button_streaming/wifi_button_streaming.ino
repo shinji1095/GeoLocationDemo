@@ -1,26 +1,33 @@
 #include "esp_camera.h"
 #include <WiFi.h>
-#include <HTTPClient.h> 
+#include <HTTPClient.h>
+#include <WebSocketsClient.h>
 #include "FS.h"
 #include "SD.h"
 #include "SPI.h"
 #include <time.h>
 
-
-// ===================
-#define BUTTON_PIN 1     
-#define CAMERA_MODEL_XIAO_ESP32S3 // Has PSRAM
+#define BUTTON_PIN 1
+#define CAMERA_MODEL_XIAO_ESP32S3
 #include "camera_pins.h"
 
-// ---- Wifi Setting ----
-const char *ssid = "moto g(50) 5G_2485";//"yagi";
-const char *password = "44bpwpzj6s8rkxc";//"Plus13Ultra";
+// ---- Wifi ----
+const char *ssid = "moto g(50) 5G_2485";
+const char *password = "44bpwpzj6s8rkxc";
+
+// ---- WebSocket ----
+const char* WS_HOST = "10.32.59.91";
+const uint16_t WS_PORT = 4000;
+const char* WS_PATH = "/stream";
+
+WebSocketsClient wsStream;
 
 // ---- NTP ----
 const char *ntpServer = "ntp.nict.jp";
 const long gmtOffset_sec = 9 * 3600;
 const int daylightOffset_sec = 0;
 
+// ---- Setup ----
 void setup() {
   pinMode(BUTTON_PIN, INPUT_PULLDOWN);
   pinMode(LED_BUILTIN, OUTPUT);
@@ -83,42 +90,25 @@ void setup() {
   WiFi.begin(ssid, password);
   WiFi.setTxPower(WIFI_POWER_17dBm);
   WiFi.setSleep(false);
-
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-  Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.print("IP Address: ");
-  Serial.println(WiFi.localIP());
-  digitalWrite(LED_BUILTIN, HIGH);
+  Serial.println("\nWiFi connected");
 
   // ---- NTP ----
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer, "pool.ntp.org");
-  Serial.print("Syncing NTP");
-  for (int i = 0; i < 10; ++i) {
-    time_t now = time(nullptr);
-    if (now > 1700000000) {
-      Serial.println(" ✓");
-      break;
-    }
-    Serial.print(".");
-    delay(500);
-  }
 
-  // ---- SD Card ----
-  if (!SD.begin(21)) {
-    Serial.println("Card Mount Failed");
-    while(1) delay(1000);
-  }
-  if (!SD.exists("/photo")) SD.mkdir("/photo");
-  Serial.println("SD card initialized");
+  // ---- WebSocket ----
+  wsStream.begin(WS_HOST, WS_PORT, WS_PATH);
+  wsStream.setReconnectInterval(3000);
 }
 
 void loop() {
+  wsStream.loop();  // WebSocketを維持
+
   if (digitalRead(BUTTON_PIN) == HIGH) {
-    Serial.println("[INFO] Button pressed. Capturing photo...");
+    Serial.println("[INFO] Button pressed. Capturing and sending photo...");
 
     camera_fb_t *fb = esp_camera_fb_get();
     if (!fb) {
@@ -126,8 +116,8 @@ void loop() {
       delay(1000);
       return;
     }
-    Serial.printf("[INFO] Captured frame: %d bytes\n", fb->len);
 
+    // SDカード保存（元コードのまま）
     time_t now = time(nullptr);
     struct tm tm;
     localtime_r(&now, &tm);
@@ -137,16 +127,21 @@ void loop() {
         tm.tm_hour, tm.tm_min, tm.tm_sec);
 
     File file = SD.open(filename, FILE_WRITE);
-    if (!file) {
-      Serial.printf("[ERROR] Failed to open %s for writing\n", filename);
-    } else {
+    if (file) {
       file.write(fb->buf, fb->len);
       file.close();
       Serial.printf("[INFO] Saved photo: %s\n", filename);
+    } else {
+      Serial.printf("[ERROR] Failed to write to SD: %s\n", filename);
     }
-    esp_camera_fb_return(fb);
 
+    // 📡 WebSocketで送信
+    bool ok = wsStream.sendBIN(fb->buf, fb->len);
+    Serial.printf(ok ? "[INFO] Sent %d bytes over WebSocket\n" : "[ERROR] WebSocket send failed\n", fb->len);
+
+    esp_camera_fb_return(fb);
     delay(1000);
   }
+
   delay(10);
 }

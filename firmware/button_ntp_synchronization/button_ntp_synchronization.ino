@@ -8,9 +8,9 @@
 #include "camera_pins.h"
 
 // ====== Wi-Fi & WebSocket ======
-const char* WIFI_SSID = "aterm-cd7784-a";
-const char* WIFI_PASS = "9d1d50c097fc7";
-const char* WS_HOST = "192.168.10.101";  // React/Server PC
+const char* WIFI_SSID = "pi";//"moto g(50) 5G_2485";//"己のiPhone";//"aterm-cd7784-a";
+const char* WIFI_PASS = "wadalab5540";//"44bpwpzj6s8rkxc";//"9d1d50c097fc7";//"abcd4213";//
+const char* WS_HOST = "10.42.0.243";//"192.168.10.101";  // React/Server PC
 const uint16_t WS_PORT = 4000;
 const char* CTRL_PATH = "/ctrl";
 
